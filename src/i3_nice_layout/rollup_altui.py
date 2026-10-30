@@ -2,7 +2,7 @@
 stand-in titlebar that can restore it.
 
 This is intentionally minimal. The stand-in is currently just another
-i3 floating window (you can later replace it with a real GTK/Qt bar
+i3 floating window (XXX: later replace it with a real GTK/Qt bar
 that has mouse callbacks).
 """
 

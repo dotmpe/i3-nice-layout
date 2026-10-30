@@ -1,4 +1,4 @@
-"""Tiny helper for other Python code (your packing library) to talk to the pool."""
+"""Tiny helper for other Python code to talk to the pool."""
 
 from __future__ import annotations
 

@@ -131,19 +131,37 @@ class Daemon:
     def _dispatch(self, cmd: str, req: dict):
         if cmd == "ping":
             return {"ok": True, "pong": True}
+
         if cmd == "pool.list":
+            windows = self.pool.all()
+            # optional filters (all ANDed)
+            if req.get("floating"):
+                windows = [w for w in windows if w.floating != "off"]
+            if req.get("rolled"):
+                windows = [w for w in windows if w.rolled_up]
+            if req.get("tag"):
+                windows = [w for w in windows if req["tag"] in w.tags]
+            if req.get("group"):
+                windows = [w for w in windows if req["group"] in w.groups]
+            if req.get("mark"):
+                windows = [w for w in windows if req["mark"] in w.marks]
+            if req.get("workspace"):
+                windows = [w for w in windows if w.workspace == req["workspace"]]
             return {
                 "ok": True,
-                "windows": [self._record_to_dict(w) for w in self.pool.all()],
+                "windows": [self._record_to_dict(w) for w in windows],
             }
+
         if cmd == "pool.get":
             rec = self.pool.get(req["id"])
             return {"ok": bool(rec), "window": self._record_to_dict(rec) if rec else None}
+
         if cmd == "pool.by_mark":
             return {
                 "ok": True,
                 "windows": [self._record_to_dict(w) for w in self.pool.by_mark(req["mark"])],
             }
+
         if cmd == "tag.add":
             rec = self.pool.get(req["id"])
             if not rec:
@@ -152,6 +170,7 @@ class Daemon:
             if tag not in rec.tags:
                 rec.tags.append(tag)
             return {"ok": True}
+
         if cmd == "group.add":
             rec = self.pool.get(req["id"])
             if not rec:
@@ -160,10 +179,11 @@ class Daemon:
             if g not in rec.groups:
                 rec.groups.append(g)
             return {"ok": True}
-        # roll-up stubs – real implementation in rollup.py
+
         if cmd == "rollup.toggle":
-            from . import rollup
-            return rollup.toggle(self.i3, self.pool, req.get("id"))
+            from . import rollup_geom
+            return rollup_geom.toggle(self.i3, self.pool, req.get("id"))
+
         return {"ok": False, "error": f"unknown cmd {cmd}"}
 
     @staticmethod
