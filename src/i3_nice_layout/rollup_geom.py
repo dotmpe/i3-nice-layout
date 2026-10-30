@@ -42,7 +42,7 @@ def toggle(
         rec = con_to_record(con)
         if rec.geometry:
             rec.push_geometry(rec.geometry)
-        pool.upsert(rec)
+        pool.insert(rec)
 
     if rec.rolled_up:
         return _unroll(i3, pool, rec)
@@ -60,6 +60,7 @@ def _roll(
     con = i3.get_tree().find_by_id(rec.id)
     if con and con.rect:
         live = Geometry(x=con.rect.x, y=con.rect.y, width=con.rect.width, height=con.rect.height)
+
         rec.push_geometry(live)
     elif rec.geometry:
         rec.push_geometry(rec.geometry)
@@ -78,10 +79,12 @@ def _roll(
     rec.rolled_up = True
     rec.extra["rolled_height"] = rolled_height
     # full geometry already sits at the end of geometry_history / in .geometry
-    pool.upsert(rec)
+    pool.insert(rec)
     pool.save_snapshot()
 
-    log.info("rolled up con_id=%s (%s) → h=%d", rec.id, rec.name, rolled_height)
+    log.info("rolled up con_id=%s (%s) → h=%d from h=%d", rec.id, rec.name,
+             rolled_height, rec.geometry.height)
+
     return {
         "ok": True,
         "action": "rolled",
@@ -117,7 +120,7 @@ def _unroll(i3: Connection, pool: WindowPool, rec: WindowRecord) -> dict[str, An
     rec.extra.pop("rolled_height", None)
     # refresh live geometry
     rec.push_geometry(full)
-    pool.upsert(rec)
+    pool.insert(rec)
     pool.save_snapshot()
 
     log.info("unrolled con_id=%s → %dx%d", rec.id, full.width, full.height)

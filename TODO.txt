@@ -1,2 +1,5 @@
 (C) 2026-10-30 TODO: make roll-up (variant) to resize window (iso. alt UI/stand-in window) @dev #_3
 (D) 2026-10-30 TODO: integrate or implement GUI; plug grid tracking and tabular packing code into the pool, and use it to build overlays, or shaped windows, that have contextual graphics (and later UI) for app windows @plan #_2
+(E) 2026-10-30 FIXME: tested initial version, and it works when Vim is front command but on my Bash session it fails to restore full height on certain host #_4 \
+
+  Diagnose: look for race in existing resize trap perhaps; or else other custom script I forgot about
