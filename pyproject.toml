@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "i3-nice-layout"
+version = "0.1.0"
+description = "Window pool, geometry cache and floating helpers for i3 (rollup, groups, …)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "You" }]
+dependencies = [
+    "i3ipc>=2.2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+# later: gtk / qt for nicer stand-in titlebars
+titlebar = []
+
+[project.scripts]
+i3-nice-layout = "i3_nice_layout.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100

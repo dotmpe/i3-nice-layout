@@ -1,0 +1,2 @@
+(C) 2026-10-30 TODO: make roll-up (variant) to resize window (iso. alt UI/stand-in window) @dev #_3
+(D) 2026-10-30 TODO: integrate or implement GUI; plug grid tracking and tabular packing code into the pool, and use it to build overlays, or shaped windows, that have contextual graphics (and later UI) for app windows @plan #_2
