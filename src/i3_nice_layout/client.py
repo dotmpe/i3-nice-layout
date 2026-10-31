@@ -37,3 +37,8 @@ def list_windows() -> list[dict]:
 def get_window(con_id: int) -> dict | None:
     r = call("pool.get", id=con_id)
     return r.get("window")
+
+
+def follow(**kwargs) -> dict:
+    """Ask the daemon to shift a group. See `i3-nice-layout follow --help`."""
+    return call("group.follow", **kwargs)

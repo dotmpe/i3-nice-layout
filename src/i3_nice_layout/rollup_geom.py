@@ -14,7 +14,7 @@ from i3ipc import Connection
 
 from .pool import Geometry, WindowPool, WindowRecord
 
-log = logging.getLogger("i3-nice-layout.rollup")
+log = logging.getLogger("i3-nice-layout.rollup-geom")
 
 # Default height of a “rolled” window (pixels). Overridable later via config.
 DEFAULT_ROLLED_HEIGHT = 28

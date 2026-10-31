@@ -13,6 +13,7 @@ from pathlib import Path
 
 from i3ipc import Connection, Event
 
+from .group_follow import GroupFollow, capture_origin
 from .pool import Geometry, WindowPool, WindowRecord
 
 log = logging.getLogger("i3-nice-layout.daemon")
@@ -44,6 +45,29 @@ def con_to_record(con) -> WindowRecord:
     )
 
 
+def _merge_user_state(rec: WindowRecord, existing: WindowRecord | None) -> None:
+    """Keep tags, groups, roll-up and group_xy across a fresh i3 record.
+
+    group_xy lives in extra and must survive focus/move events, or a drag
+    that emits no event has no baseline to diff against.
+    """
+    if not existing:
+        if rec.geometry:
+            rec.push_geometry(rec.geometry)
+        return
+    rec.tags = existing.tags
+    rec.groups = existing.groups
+    rec.rolled_up = existing.rolled_up
+    rec.stand_in_id = existing.stand_in_id
+    rec.extra = existing.extra
+    if rec.geometry:
+        existing.push_geometry(rec.geometry)
+        rec.geometry_history = existing.geometry_history
+    else:
+        rec.geometry = existing.geometry
+        rec.geometry_history = existing.geometry_history
+
+
 class Daemon:
     def __init__(
         self,
@@ -52,6 +76,7 @@ class Daemon:
     ):
         self.socket_path = socket_path
         self.pool = WindowPool(snapshot_path=snapshot_path)
+        self.follow = GroupFollow(self.pool)
         self.i3 = Connection()
         self._server: socket.socket | None = None
         self._stop = threading.Event()
@@ -63,30 +88,18 @@ class Daemon:
         change = event.change
         con = event.container
 
-        if change in ("new", "focus", "title", "move", "floating", "fullscreen_mode"):
-            rec = con_to_record(con)
-            existing = self.pool.get(con.id)
-            if existing:
-                # preserve user tags / groups / roll-up state
-                rec.tags = existing.tags
-                rec.groups = existing.groups
-                rec.rolled_up = existing.rolled_up
-                rec.stand_in_id = existing.stand_in_id
-                rec.extra = existing.extra
-                if rec.geometry:
-                    existing.push_geometry(rec.geometry)
-                    rec.geometry_history = existing.geometry_history
-            else:
-                if rec.geometry:
-                    rec.push_geometry(rec.geometry)
-            self.pool.insert(rec)
+        with self.follow.pool_lock():
+            if change in ("new", "focus", "title", "move", "floating", "fullscreen_mode"):
+                rec = con_to_record(con)
+                _merge_user_state(rec, self.pool.get(con.id))
+                self.pool.insert(rec)
+            elif change == "close":
+                self.pool.remove(con.id)
+                self.pool.drop_anchors_for(con.id)
 
-        elif change == "close":
-            self.pool.remove(con.id)
-
-        # cheap periodic snapshot
-        if change in ("new", "close", "move"):
-            self.pool.save_snapshot()
+            # cheap periodic snapshot
+            if change in ("new", "close", "move"):
+                self.pool.save_snapshot()
 
     def _seed_pool(self):
         """Populate pool from current tree on startup."""
@@ -94,8 +107,7 @@ class Daemon:
         for con in tree.descendants():
             if con.window:  # only real windows for now
                 rec = con_to_record(con)
-                if rec.geometry:
-                    rec.push_geometry(rec.geometry)
+                _merge_user_state(rec, self.pool.get(con.id))
                 self.pool.insert(rec)
         log.info("seeded pool with %d windows", len(self.pool.all()))
 
@@ -163,22 +175,31 @@ class Daemon:
             }
 
         if cmd == "tag.add":
-            rec = self.pool.get(req["id"])
-            if not rec:
-                return {"ok": False, "error": "unknown id"}
-            tag = req["tag"]
-            if tag not in rec.tags:
-                rec.tags.append(tag)
+            with self.follow.pool_lock():
+                rec = self.pool.get(req["id"])
+                if not rec:
+                    return {"ok": False, "error": "unknown id"}
+                tag = req["tag"]
+                if tag not in rec.tags:
+                    rec.tags.append(tag)
             return {"ok": True}
 
         if cmd == "group.add":
-            rec = self.pool.get(req["id"])
-            if not rec:
-                return {"ok": False, "error": "unknown id"}
-            g = req["group"]
-            if g not in rec.groups:
-                rec.groups.append(g)
+            with self.follow.pool_lock():
+                rec = self.pool.get(req["id"])
+                if not rec:
+                    return {"ok": False, "error": "unknown id"}
+                g = req["group"]
+                if g not in rec.groups:
+                    rec.groups.append(g)
+                # Baseline for a later follow. A pointer drag will not emit
+                # window::move, so this geometry is the pre-drag spot.
+                capture_origin(rec)
+                self.pool.save_snapshot()
             return {"ok": True}
+
+        if cmd == "group.follow":
+            return self.follow.handle(req)
 
         if cmd == "rollup.toggle":
             from . import rollup_geom
@@ -224,6 +245,7 @@ class Daemon:
         def _shutdown(*_):
             log.info("shutting down")
             self._stop.set()
+            self.follow.stop()
             self.pool.save_snapshot()
             if self._server:
                 self._server.close()

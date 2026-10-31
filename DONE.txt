@@ -1,1 +1,2 @@
 (C) 2026-10-30 DONE: initial project setup: daemon/client and persisted pool for geometry; and roll-up function version:0.1.0 #_1
+(D) 2026-10-30 DONE: make roll-up (variant) to resize window (iso. alt UI/stand-in window) @dev #_3

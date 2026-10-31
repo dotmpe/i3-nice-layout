@@ -1,2 +1,16 @@
+# Local/seed file/scripts
+.env*
+*.local.*
+
+# C tags...
+.tags
+tags
+
+# Editor and temp
+*~
+.*sw[a-p]
+*.tmp
+
+# Python
 *.egg-info
 __pycache__

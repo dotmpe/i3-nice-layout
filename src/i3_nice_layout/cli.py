@@ -108,6 +108,46 @@ def main(argv: list[str] | None = None) -> None:
         func=lambda a: print(json.dumps(_send("group.add", id=a.id, group=a.group)))
     )
 
+    # Shift every other window in a group by the delta of one window.
+    # One-shot (after a drag) is the default. --watch polls during the drag.
+    p_follow = sub.add_parser(
+        "follow",
+        help="move the rest of a group when one window is repositioned",
+    )
+    p_follow.add_argument("--id", type=int, help="window that moved (default: focused)")
+    p_follow.add_argument("--group", help="group name (default: the window's only group)")
+    p_follow.add_argument(
+        "--anchor",
+        action="store_true",
+        help="only this window pulls the group",
+    )
+    p_follow.add_argument(
+        "--clear-anchor",
+        action="store_true",
+        help="any member may pull the group again",
+    )
+    p_follow.add_argument(
+        "--watch",
+        action="store_true",
+        help="poll and apply while a window is being dragged",
+    )
+    p_follow.add_argument(
+        "--unwatch",
+        action="store_true",
+        help="stop polling (one --group, or all groups)",
+    )
+    p_follow.add_argument(
+        "--interval",
+        type=int,
+        help="poll period in ms for --watch (default 50, minimum 10)",
+    )
+    p_follow.add_argument(
+        "--status",
+        action="store_true",
+        help="print watch state and the last poll timings",
+    )
+    p_follow.set_defaults(func=_cmd_follow)
+
     # rollup
     p_roll = sub.add_parser("rollup")
     roll_sub = p_roll.add_subparsers(dest="roll_cmd", required=True)
@@ -119,6 +159,33 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
     args.func(args)
+
+
+def _cmd_follow(a) -> None:
+    status_extra = a.anchor or a.clear_anchor or a.watch or a.unwatch or a.group or a.id is not None
+    if a.status and status_extra:
+        print(json.dumps({"ok": False, "error": "--status does not take other arguments"}))
+        sys.exit(1)
+    if a.unwatch and (a.watch or a.anchor or a.clear_anchor):
+        print(json.dumps({"ok": False, "error": "--unwatch only stops watching"}))
+        sys.exit(1)
+    if a.anchor and a.clear_anchor:
+        print(json.dumps({"ok": False, "error": "--anchor and --clear-anchor conflict"}))
+        sys.exit(1)
+    if a.interval is not None and not a.watch:
+        print(json.dumps({"ok": False, "error": "--interval is only used with --watch"}))
+        sys.exit(1)
+    payload = {
+        "id": a.id,
+        "group": a.group,
+        "anchor": True if a.anchor else None,
+        "clear_anchor": True if a.clear_anchor else None,
+        "watch": True if a.watch else None,
+        "unwatch": True if a.unwatch else None,
+        "status": True if a.status else None,
+        "interval_ms": a.interval,
+    }
+    print(json.dumps(_send("group.follow", **payload), indent=2))
 
 
 def _run_daemon():

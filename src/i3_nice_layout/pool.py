@@ -59,12 +59,15 @@ class WindowRecord:
 
 
 class WindowPool:
-    """Simple dict-backed pool. Thread-safety is not required for the
-    single-threaded i3ipc event loop we will use."""
+    """Dict-backed pool. The daemon locks around mutations; the pool itself
+    does not."""
 
     def __init__(self, snapshot_path: Path | None = None):
         self._windows: dict[int, WindowRecord] = {}
         self.snapshot_path = snapshot_path
+        # group name → container id of the window that pulls the others.
+        # Empty means any member of that group may lead.
+        self.group_anchors: dict[str, int] = {}
 
     # ------------------------------------------------------------------
     # basic CRUD
@@ -90,6 +93,19 @@ class WindowPool:
     def by_group(self, group: str) -> list[WindowRecord]:
         return [w for w in self._windows.values() if group in w.groups]
 
+    def set_anchor(self, group: str, con_id: int) -> None:
+        self.group_anchors[group] = con_id
+
+    def clear_anchor(self, group: str) -> None:
+        self.group_anchors.pop(group, None)
+
+    def drop_anchors_for(self, con_id: int) -> None:
+        self.group_anchors = {
+            group: anchor
+            for group, anchor in self.group_anchors.items()
+            if anchor != con_id
+        }
+
     def floating(self) -> list[WindowRecord]:
         return [w for w in self._windows.values() if w.floating != "off"]
 
@@ -102,6 +118,7 @@ class WindowPool:
         data = {
             "ts": time.time(),
             "windows": [asdict(w) for w in self._windows.values()],
+            "group_anchors": self.group_anchors,
         }
         self.snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         self.snapshot_path.write_text(json.dumps(data, indent=2, default=str))
@@ -121,6 +138,8 @@ class WindowPool:
                 item["geometry_history"] = hist
                 rec = WindowRecord(**item)
                 self._windows[rec.id] = rec
+            anchors = raw.get("group_anchors") or {}
+            self.group_anchors = {str(k): int(v) for k, v in anchors.items()}
         except Exception:
             # corrupt snapshot → start empty
             pass

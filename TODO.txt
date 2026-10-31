@@ -1,5 +1,24 @@
-(C) 2026-10-30 TODO: make roll-up (variant) to resize window (iso. alt UI/stand-in window) @dev #_3
-(D) 2026-10-30 TODO: integrate or implement GUI; plug grid tracking and tabular packing code into the pool, and use it to build overlays, or shaped windows, that have contextual graphics (and later UI) for app windows @plan #_2
-(E) 2026-10-30 FIXME: tested initial version, and it works when Vim is front command but on my Bash session it fails to restore full height on certain host #_4 \
+(D) 2026-10-30 TODO: integrate or implement (more interesting) GUI @plan #_2 \
+  plug grid tracking and tabular packing code into it, and use that to build overlays, or shaped windows, diagrams, etc
+  to have independent contextual graphics (and may be interactive UI) for app windows
+  [2026-11-01] started i3-nice-gui project, at least for some faux, stand-in GUI and perhaps a bit more in terms of group indication, selection, or other interactive feedback
+(D) 2026-11-01 TODO: finish rollup_altui implementation for stand-in UI integration; @dev #_6 \
+  Take argv template for the command; the default can come from env I3_NICE_STAND_IN. Example:
 
-  Diagnose: look for race in existing resize trap perhaps; or else other custom script I forgot about
+    i3-nice-gui title --for {id} --title {name} --x {x} --y {y} --width {width} --height {height}
+
+  Placeholders are {id}, {name}, {x}, {y}, {width}, {height}, {class}, {instance}, {workspace}.
+  spawn and match window by _NET_WM_PID.
+  WM_CLASS i3-nice-gui / title is the backup check.
+  A binding stays i3-nice-layout rollup toggle --stand-in.
+(D) 2026-10-31 TODO: try `follow --watch` while dragging a floating window; note glitches and IPC time @test #_5 \
+  i3 does not emit window::move for a pointer drag, but it does service IPC
+  inside that loop. follow --watch polls GET_TREE and sends relative moves.
+  Daemon log i3-nice-layout.follow reports poll_ms, ipc_ms, slow, unconfirmed.
+  No UI. Stop with: i3-nice-layout follow --unwatch
+(D) 2026-10-31 TODO: make a "staircase" or staggered placement function called the cascade layout; the parameter inputs are a group, and an x/y delta; the layout can be initial positioning only, or designated as a 'follow' group #_6 \
+  - I think i3 winid order is suitable to initialize the cascade.
+  - The wrapping script/UI glue should take care of the initial positioning, to apply one to the first window; or not.
+(E) 2026-10-30 BUG: since initial version, an urxvt window w/ Bash session fails to restore full height on certain host #_4 \
+  Only when Bash is foreground, but not when e.g. Vim is.
+  Diagnose: look for race in existing resize trap but I'm lazy now; might be other custom local script/config I forgot about

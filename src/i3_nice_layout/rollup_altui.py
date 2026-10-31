@@ -15,7 +15,7 @@ from i3ipc import Connection
 
 from .pool import WindowPool, WindowRecord
 
-log = logging.getLogger("i3-nice-layout.rollup")
+log = logging.getLogger("i3-nice-layout.rollup-altui")
 
 
 def toggle(i3: Connection, pool: WindowPool, con_id: int | None = None) -> dict[str, Any]:
