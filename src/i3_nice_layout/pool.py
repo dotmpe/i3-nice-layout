@@ -126,8 +126,10 @@ class WindowPool:
     def load_snapshot(self) -> None:
         if not self.snapshot_path or not self.snapshot_path.exists():
             return
+        # XXX: no specific parse warnings or errors with diagnostics
         try:
             raw = json.loads(self.snapshot_path.read_text())
+            # Unmarshal the WindowRecords and nested Geometry instances,
             for item in raw.get("windows", []):
                 geo = item.get("geometry")
                 if geo:
@@ -142,4 +144,5 @@ class WindowPool:
             self.group_anchors = {str(k): int(v) for k, v in anchors.items()}
         except Exception:
             # corrupt snapshot → start empty
+            # TODO: at least log about the error
             pass

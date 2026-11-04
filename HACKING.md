@@ -36,6 +36,8 @@ $ i3-nice-layout follow
 
 - `xdotool selectwindow` returns the X window Id; the i3 Id can be picked from `get_tree` JSON.
 
+    < <(i3-msg -t get_tree) jq -r ' .. | select(.window? == '"${1}"') | [.id]'
+
 These are some example Bash functions:
 
 ```bash
