@@ -20,6 +20,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from .leaf import focused_window_id
 from .pool import WindowPool, WindowRecord
 
 log = logging.getLogger("i3-nice-layout.follow")

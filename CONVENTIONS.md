@@ -35,4 +35,4 @@ This conventions includes the `baseline` boilerplate from User-Tools via the Use
   For all further project tooling and devops, like provisioning, testing, environment setup and deployment an external project should be appointed the standard; this project just follows versions, and holds bespoke configuration.
 
 ----
-###### Id: CONVENTIONS+baseline.md +User-Tools v0.1.1
+###### Id: CONVENTIONS+baseline.md +User-Tools v0.1.2
