@@ -257,13 +257,6 @@ def index_tree(tree) -> dict[int, LiveGeom]:
     return found
 
 
-def _focused_window_id(tree) -> int | None:
-    con = tree.find_focused()
-    if not con or not getattr(con, "window", None):
-        return None
-    return int(con.id)
-
-
 def _near(x: int, y: int, tx: int, ty: int, tol: int = _ARRIVE_PX) -> bool:
     return abs(x - tx) <= tol and abs(y - ty) <= tol
 
@@ -408,7 +401,7 @@ class GroupFollow:
             tree = conn.get_tree()
             live = index_tree(tree)
             if con_id is None:
-                con_id = _focused_window_id(tree)
+                con_id = focused_window_id(tree)
             if con_id is None:
                 return {"ok": False, "error": "no focused window"}
             with self._pool_lock:
@@ -470,7 +463,7 @@ class GroupFollow:
             tree = conn.get_tree()
             poll_ms = (time.perf_counter() - t0) * 1000.0
             if con_id is None:
-                con_id = _focused_window_id(tree)
+                con_id = focused_window_id(tree)
             if con_id is None:
                 return {"ok": False, "error": "no focused window"}
             live = index_tree(tree)

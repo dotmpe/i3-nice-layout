@@ -1,16 +1,22 @@
-# Local/seed file/scripts
+# See GIT_CONVENTIONS.md on gitignore usage.
+
+# Local seed/user/cache files and scripts
 .env*
 *.local.*
+.local/build
+.local/cache
+.local/user
+.local/*venv
 
 # C tags...
 .tags
-tags
 
 # Editor and temp
 *~
 .*sw[a-p]
 *.tmp
 
-# Python
+# Python editable source installs
 *.egg-info
+# Other cache
 __pycache__

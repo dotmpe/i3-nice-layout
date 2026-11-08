@@ -9,6 +9,7 @@ import socket
 import sys
 from pathlib import Path
 
+__version__ = '0.1.1'
 DEFAULT_SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "i3-nice-layout.sock"
 
 
@@ -59,6 +60,7 @@ def _print_pool(reply: dict, as_json: bool = True) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="i3-nice-layout")
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s '+__version__)
     sub = parser.add_subparsers(dest="command", required=True)
 
     # daemon
@@ -92,27 +94,35 @@ def main(argv: list[str] | None = None) -> None:
     ))
 
     p_get = pool_sub.add_parser("get")
-    p_get.add_argument("id", type=int)
+    p_get.add_argument("--id", type=int,
+                       help="window to get (default: focused)")
     p_get.set_defaults(func=lambda a: print(json.dumps(_send("pool.get", id=a.id), indent=2)))
 
     # tag / group
-    p_tag = sub.add_parser("tag")
-    p_tag.add_argument("id", type=int)
+    # User tag live in the tracked window pool of the i3-nice-layout daemon.
+    p_tag = sub.add_parser("tag", help="add or remove user tags")
+    p_tag.add_argument("--id", type=int,
+                       help="window to tag (default: focused)")
+    p_tag.add_argument("-R", "--remove", action="store_true")
     p_tag.add_argument("tag")
     p_tag.set_defaults(func=lambda a: print(json.dumps(_send("tag.add", id=a.id, tag=a.tag))))
 
-    p_group = sub.add_parser("group")
-    p_group.add_argument("id", type=int)
+    # Groups are used to apply behavior to windows.
+    p_group = sub.add_parser("group", help="add or remove window from group")
+    p_group.add_argument("--id", type=int,
+                         help="window to group (default: focused)")
+    p_group.add_argument("-R", "--remove", action="store_true")
     p_group.add_argument("group")
     p_group.set_defaults(
-        func=lambda a: print(json.dumps(_send("group.add", id=a.id, group=a.group)))
+            func=lambda a: print(json.dumps(_send(
+                "group.add" if not a.remove else "group.remove", id=a.id, group=a.group)))
     )
 
     # Shift every other window in a group by the delta of one window.
     # One-shot (after a drag) is the default. --watch polls during the drag.
     p_follow = sub.add_parser(
         "follow",
-        help="move the rest of a group when one window is repositioned",
+        help="move a group when one window is repositioned",
     )
     p_follow.add_argument("--id", type=int, help="window that moved (default: focused)")
     p_follow.add_argument("--group", help="group name (default: the window's only group)")
@@ -151,14 +161,41 @@ def main(argv: list[str] | None = None) -> None:
     # rollup
     p_roll = sub.add_parser("rollup")
     roll_sub = p_roll.add_subparsers(dest="roll_cmd", required=True)
-    p_toggle = roll_sub.add_parser("toggle", help="shrink ↔ restore geometry of focused window")
+    p_toggle = roll_sub.add_parser("toggle", help="roll up or restore the focused window")
     p_toggle.add_argument("--id", type=int, default=None, help="container id (default: focused)")
-    p_toggle.set_defaults(
-        func=lambda a: print(json.dumps(_send("rollup.toggle", id=a.id), indent=2))
+    p_toggle.add_argument(
+        "--stand-in",
+        action="store_true",
+        help="spawn a stand-in title (I3_NICE_STAND_IN) instead of shrinking",
     )
+    p_toggle.add_argument(
+        "--stand-in-cmd",
+        default=None,
+        help="argv template for this toggle; overrides I3_NICE_STAND_IN",
+    )
+    p_toggle.set_defaults(func=_cmd_rollup)
 
     args = parser.parse_args(argv)
     args.func(args)
+
+
+def _rollup_payload(a) -> dict:
+    """JSON fields for ``rollup toggle``. The env template is forwarded so
+    the keybinding process and the daemon do not have to share an environment.
+    """
+    stand_in = bool(a.stand_in or a.stand_in_cmd)
+    cmd = a.stand_in_cmd
+    if stand_in and not cmd:
+        cmd = os.environ.get("I3_NICE_STAND_IN") or None
+    return {
+        "id": a.id,
+        "stand_in": True if stand_in else None,
+        "stand_in_cmd": cmd,
+    }
+
+
+def _cmd_rollup(a) -> None:
+    print(json.dumps(_send("rollup.toggle", **_rollup_payload(a)), indent=2))
 
 
 def _cmd_follow(a) -> None:

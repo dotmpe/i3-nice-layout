@@ -1,7 +1,11 @@
-# Project conventions (User-Tools baseline edition)
+# Project conventions (i3-nice-layout edition)
+
+This conventions includes the `baseline` boilerplate from User-Tools via the User-Conf-LLM project
+(currently found `git@github.com:dotmpe/user-conf-llm.git` `doc/CONVENTIONS+baseline.md`).
+
 - Document project goals, methods, setup or state, and architecture in README.md, succinctly.
 
-- Keep ops/dev-type notes in HACKING.md, or other (doc/* or suitable basename or tree).
+- During development keep ops-type notes in HACKING.md (and other doc/*, or the TODO/DONE tasks).
 
 - For comments, tasks, open points, remarks and margin notes; the TODO/FIXME/XXX/BUG/NOTE/... tag can be used inline (code comments, strings, or in plain text) to mark things per their category;
 

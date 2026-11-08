@@ -1,2 +1,7 @@
 (C) 2026-10-30 DONE: initial project setup: daemon/client and persisted pool for geometry; and roll-up function version:0.1.0 #_1
 (D) 2026-10-30 DONE: make roll-up (variant) to resize window (iso. alt UI/stand-in window) @dev #_3
+(D) 2026-11-05 DONE: finish rollup_altui stand-in spawn, match, and unroll @dev #_6 \
+  rollup toggle --stand-in reads I3_NICE_STAND_IN (or --stand-in-cmd).
+  The daemon spawns that argv, matches _NET_WM_PID (WM_CLASS i3-nice-gui/title as backup),
+  places the stand-in, then scratchpads the real window. Match timeout is 2s.
+  Closing the stand-in restores the real window. Closing the real window signals the stand-in.

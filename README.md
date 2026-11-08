@@ -54,7 +54,10 @@ Invoke ``i3-nice-layout daemon`` to spawn a helper tracking the window pool.
 
 - **Commands**
 
-  Thin CLI that talks to the daemon over a Unix socket; and falls back to direct i3ipc when the daemon is not running.
+  Thin CLI that talks to the daemon over a Unix socket; and falls back to direct i3ipc when the daemon is not running. These commands are currently in testing:
+
+  - Rollup windows
+  - Follow groups
 
 ----
 

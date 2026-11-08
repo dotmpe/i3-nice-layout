@@ -26,13 +26,7 @@ def toggle(
     con_id: int | None = None,
     rolled_height: int = DEFAULT_ROLLED_HEIGHT,
 ) -> dict[str, Any]:
-    """Toggle roll-up for the focused window (or the given container id)."""
-    if con_id is None:
-        focused = i3.get_tree().find_focused()
-        if not focused or not focused.window:
-            return {"ok": False, "error": "no focused window"}
-        con_id = focused.id
-
+    """Toggle roll-up for the given container id."""
     rec = pool.get(con_id)
     if rec is None:
         con = i3.get_tree().find_by_id(con_id)

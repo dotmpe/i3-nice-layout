@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import logging
 import os
@@ -13,13 +14,79 @@ from pathlib import Path
 
 from i3ipc import Connection, Event
 
+from . import rollup_altui
 from .group_follow import GroupFollow, capture_origin
+from .leaf import focused_window_id
 from .pool import Geometry, WindowPool, WindowRecord
 
 log = logging.getLogger("i3-nice-layout.daemon")
 
 DEFAULT_SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "i3-nice-layout.sock"
 DEFAULT_SNAPSHOT = Path.home() / ".cache" / "i3-nice-layout" / "pool.json"
+
+
+class DaemonAlreadyRunning(Exception):
+    def __init__(self, path: Path):
+        self.path = path
+        super().__init__(f"daemon already running ({path})")
+
+
+def command_socket_is_open(path: Path) -> bool:
+    """True when a process is accepting connections on this pathname socket."""
+    if not path.exists():
+        return False
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        probe.settimeout(0.5)
+        probe.connect(str(path))
+    except (ConnectionRefusedError, FileNotFoundError):
+        return False
+    except OSError as exc:
+        # A leftover non-socket, or a refused connect reported as errno.
+        return exc.errno not in (errno.ECONNREFUSED, errno.ENOENT, errno.ENOTSOCK)
+    else:
+        return True
+    finally:
+        probe.close()
+
+
+def acquire_command_socket(path: Path) -> socket.socket:
+    """Bind and listen. A live socket raises DaemonAlreadyRunning.
+
+    A pathname left by a dead process is removed. The caller owns the socket.
+    """
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        _bind_command_socket(sock, path)
+        sock.listen(8)
+    except BaseException:
+        sock.close()
+        raise
+    return sock
+
+
+def _bind_command_socket(sock: socket.socket, path: Path) -> None:
+    if command_socket_is_open(path):
+        raise DaemonAlreadyRunning(path)
+    _unlink_socket(path)
+    try:
+        sock.bind(str(path))
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            log.error("command socket %s: %s", path, exc)
+            raise SystemExit(1) from exc
+        if command_socket_is_open(path):
+            raise DaemonAlreadyRunning(path) from exc
+        _unlink_socket(path)
+        try:
+            sock.bind(str(path))
+        except OSError as exc2:
+            log.error("command socket %s: %s", path, exc2)
+            raise SystemExit(1) from exc2
+
+
+def _unlink_socket(path: Path) -> None:
+    path.unlink(missing_ok=True)
 
 
 def _rect_to_geo(rect) -> Geometry:
@@ -77,7 +144,7 @@ class Daemon:
         self.socket_path = socket_path
         self.pool = WindowPool(snapshot_path=snapshot_path)
         self.follow = GroupFollow(self.pool)
-        self.i3 = Connection()
+        self.i3: Connection | None = None
         self._server: socket.socket | None = None
         self._stop = threading.Event()
 
@@ -88,18 +155,32 @@ class Daemon:
         change = event.change
         con = event.container
 
+        follow_up = None
         with self.follow.pool_lock():
             if change in ("new", "focus", "title", "move", "floating", "fullscreen_mode"):
                 rec = con_to_record(con)
                 _merge_user_state(rec, self.pool.get(con.id))
                 self.pool.insert(rec)
             elif change == "close":
+                # Stand-in close restores the real window. Real-window close
+                # signals the stand-in. Both run after the lock is released.
+                follow_up = rollup_altui.note_close(self.pool, con)
                 self.pool.remove(con.id)
                 self.pool.drop_anchors_for(con.id)
 
             # cheap periodic snapshot
             if change in ("new", "close", "move"):
                 self.pool.save_snapshot()
+
+        if follow_up is not None:
+            rollup_altui.after_close(
+                self.i3, self.pool, follow_up, self.follow.pool_lock(),
+            )
+
+    def _req_node_id(self, req):
+        if "id" in req:
+            return req["id"]
+        return focused_window_id(self.i3.get_tree())
 
     def _seed_pool(self):
         """Populate pool from current tree on startup."""
@@ -165,7 +246,10 @@ class Daemon:
             }
 
         if cmd == "pool.get":
-            rec = self.pool.get(req["id"])
+            con_id = self._req_node_id(req)
+            if not con_id:
+                return {"ok": False, "error": "no id given and no window focussed"}
+            rec = self.pool.get(con_id)
             return {"ok": bool(rec), "window": self._record_to_dict(rec) if rec else None}
 
         if cmd == "pool.by_mark":
@@ -176,7 +260,7 @@ class Daemon:
 
         if cmd == "tag.add":
             with self.follow.pool_lock():
-                rec = self.pool.get(req["id"])
+                rec = self.pool.get(self._req_node_id(req))
                 if not rec:
                     return {"ok": False, "error": "unknown id"}
                 tag = req["tag"]
@@ -186,7 +270,7 @@ class Daemon:
 
         if cmd == "group.add":
             with self.follow.pool_lock():
-                rec = self.pool.get(req["id"])
+                rec = self.pool.get(self._req_node_id(req))
                 if not rec:
                     return {"ok": False, "error": "unknown id"}
                 g = req["group"]
@@ -201,9 +285,35 @@ class Daemon:
         if cmd == "group.follow":
             return self.follow.handle(req)
 
+        if cmd == "group.remove":
+            with self.follow.pool_lock():
+                rec = self.pool.get(self._req_node_id(req))
+                if not rec:
+                    return {"ok": False, "error": "unknown id"}
+                g = req["group"]
+                if g not in rec.groups:
+                    return {"ok": False, "error": "not in group"}
+                else:
+                    rec.groups.remove(g)
+                self.pool.save_snapshot()
+            return {"ok": True}
+
         if cmd == "rollup.toggle":
             from . import rollup_geom
-            return rollup_geom.toggle(self.i3, self.pool, req.get("id"))
+
+            stand_in = bool(req.get("stand_in"))
+            con_id = self._req_node_id(req)
+            if not con_id:
+                return {"ok": False, "error": "no id given and no window focussed"}
+            if rollup_altui.wants_altui(self.pool, self.i3, con_id, stand_in):
+                return rollup_altui.toggle(
+                    self.i3,
+                    self.pool,
+                    con_id,
+                    command=req.get("stand_in_cmd"),
+                    lock=self.follow.pool_lock(),
+                )
+            return rollup_geom.toggle(self.i3, self.pool, con_id)
 
         return {"ok": False, "error": f"unknown cmd {cmd}"}
 
@@ -215,11 +325,7 @@ class Daemon:
         return asdict(rec)
 
     def _serve_socket(self):
-        if self.socket_path.exists():
-            self.socket_path.unlink()
-        self._server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self._server.bind(str(self.socket_path))
-        self._server.listen(8)
+        assert self._server is not None
         self._server.settimeout(1.0)
         log.info("command socket at %s", self.socket_path)
         while not self._stop.is_set():
@@ -234,6 +340,12 @@ class Daemon:
 
     # ------------------------------------------------------------------
     def run(self):
+        try:
+            self._server = acquire_command_socket(self.socket_path)
+        except DaemonAlreadyRunning as exc:
+            log.error("%s", exc)
+            sys.exit(1)
+        self.i3 = Connection()
         self.pool.load_snapshot()
         self._seed_pool()
 
