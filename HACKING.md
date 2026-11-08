@@ -29,7 +29,7 @@ other tools.
 ### Session startup and state
 The interactive UI in i3wm is limited to window geometry manipulation and a
 visual bar component. You bring your own apps and tools, and those can be
-launched from keyboard shourtcuts (``bindsym``) and through i3 `exec`.
+launched from keyboard shurtcuts (``bindsym``) and through i3 `exec`.
 
 The entire state is serialized by `i3-msg -t get_tree`, into a JSON of all the
 nested container nodes. The script `i3-save-tree` is the official Perl tool to
@@ -41,6 +41,18 @@ the containers for when the programs start. Until then placeholder windows
 stand-in for visual surfaces, and i3 completely tracks them as container nodes
 in the tree (with layout, and marks, but also with the swallows list that has
 the rules for the class/instance/title/window_role/machine matching).
+
+i3-nice-layout is also not a launcher. Also its command work on i3-nice-layout
+groups, and not on i3 marks, but i3 bindings do. So if you have enough
+bindings, you can do this:
+
+```i3config
+for_window [<class/...=...>] mark role:stats-float, floating enable
+binsym <keycombo> [con_mark="role:stats-float"] exec i3-nice-layout <rollup or follow>
+```
+
+Or, you can script the for_window (add `exec` to i3-nice-layout or a command
+shell script) to do the group for the window and start a layout.
 
 ### Mouse configuration
 
@@ -54,16 +66,17 @@ the rules for the class/instance/title/window_role/machine matching).
 
 8-9 side thumb actions
 
-Click or release bindings work on only the i3 title bare chrome parts.
+Click or release bindings work on the i3 title bar, other select chrome or
+the entire window.
 
-To bind for `i3bar` surface including its buttons, use the binding commands inside a `bar { .. }` block.
+To bind for a `i3bar` surface including its buttons, use the binding commands inside a `bar { .. }` block.
 This may override normal button1 behavior and not trigger the normal workspace switch.
 
-In addition to bars, a border and whole window can be bound (`--whole-window` or `--border`, exclusive).
-Both still include the titlebar as well normally, pass `--exclude-titlebar` to limit it.
+In addition to the bars, a border and whole window can be bound (`--whole-window` or `--border`, exclusive).
+Both still include the titlebar as well normally unless `--exclude-titlebar` is given.
 
-This will override normal behaviors. [XXX: and --release is not doing anything
-for me at either of two hosts/versions]
+This too may override normal behaviors.
+[XXX: and --release is not doing anything for me at either of two hosts/versions]
 
 ### Rollup windows
 
@@ -82,28 +95,26 @@ picks the new value up after i3 is reloaded and the daemon is restarted.
 From a shell, exporting it before the client command is enough.
 
 ```
-export I3_NICE_STAND_IN='i3-nice-gui title --for {id} --title {name} --x {x} --y {y} --width {width} --height {height}'
+export I3_NICE_STAND_IN='i3-nice-gui title --for {id} --title {name} --x {x} --y {y} --width {width} --height {height} --on-click "i3-nice-layout rollup toggle --id {id}"'
 ```
 
-Placeholders: `{id}` `{name}` `{x}` `{y}` `{width}` `{height}` `{class}` `{instance}` `{workspace}`.
-`{height}` is the 28px strip. The daemon matches the new window by
-`_NET_WM_PID` (`xprop`), and uses `WM_CLASS` `i3-nice-gui` / `title` when
-that property cannot be read. It waits up to 2s, and leaves the original
-window alone when no stand-in appears. Closing the stand-in restores the
-real window at the stand-in's x, y and the cached size. i3 will not map a
+Placeholders: `{id}` `{name}` `{x}` `{y}` `{width}` `{height}` `{class}`
+`{instance}` `{workspace}`. `{height}` is the 28px strip. The daemon matches the
+new window by `_NET_WM_PID` (`xprop`), and uses `WM_CLASS` `i3-nice-gui` /
+`title` when that property cannot be read. It waits up to 2s, and leaves the
+original window alone when no stand-in appears. Closing the stand-in restores
+the real window at the stand-in's x, y and the cached size. i3 will not map a
 floating window shorter than `floating_minimum_size` (default 75 x 50).
 
 ### Follow other windows
 
 [TODO-5]
 Follow groups/group-leader of group 'notes' on call (copy relative position
-changes):
+changes) or with watch loop:
 ```
-$ i3-nice-layout group <id> notes
-$ i3-nice-layout follow
+$ i3-nice-layout group [--id=...] notes
+$ i3-nice-layout follow [--watch]
 ```
-
-This is useful as part in scripted layouts.
 
 ### Interactive commands
 

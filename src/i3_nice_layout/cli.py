@@ -9,7 +9,7 @@ import socket
 import sys
 from pathlib import Path
 
-__version__ = '0.1.1'
+__version__ = '0.1.2-dev'
 DEFAULT_SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "i3-nice-layout.sock"
 
 

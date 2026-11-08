@@ -31,16 +31,30 @@ and out of the way.
 
 - README is the main project overview.
 - See TODO/DONE.txt for tasks, this is the current location for dev and plan.
-- State is development, see [HACKING](HACKING.md) for install and other setup notes.
+- State is development, see [HACKING](HACKING.md) for current setup details (to
+  be turned into a manual later).
 
-  Instructions are at [CONVENTIONS+baseline.md](doc/CONVENTIONS+baseline.md).
+Instructions on project conventions at [CONVENTIONS.md](CONVENTIONS.md).
+
+## Quick start (non-development installation)
+
+NOTE: This project is a simple experiment, and configuration is not quite ready for effective use.
+
+To install, let venv put it into an isolated directory (for example some `.venv` or `/usr/local/lib/i3-nice-venv`) and activate that before starting the daemon:
+
+```bash
+cd ~/project/i3-nice-layout
+python -m venv .venv
+source .venv/bin/activate
+pip install .
+```
+
+Then invoke ``i3-nice-layout daemon`` to spawn a helper tracking the window pool.
 
 Example i3 config:
 
-- a direct binding: `config/i3-nice.example.conf`
-- a mode-based one: `config/i3-nice-mode.example.conf`
-
-Invoke ``i3-nice-layout daemon`` to spawn a helper tracking the window pool.
+- a direct binding: [i3-nice.example.conf](config/i3-nice.example.conf)
+- and a mode-based one: [i3-nice-mode.example.conf](config/i3-nice-mode.example.conf)
 
 ## Architecture (short)
 

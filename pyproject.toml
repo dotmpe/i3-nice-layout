@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "i3-nice-layout"
-version = "0.1.1"
+version = "0.1.2-dev"
 description = "Window pool, geometry cache and floating helpers for i3 (rollup, groups, …)"
 readme = "README.md"
 requires-python = ">=3.10"

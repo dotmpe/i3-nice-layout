@@ -5,7 +5,7 @@ This conventions includes the `baseline` boilerplate from User-Tools via the Use
 
 - Document project goals, methods, setup or state, and architecture in README.md, succinctly.
 
-- During development keep ops-type notes in HACKING.md (and other doc/*, or the TODO/DONE tasks).
+- During development keep ops-type notes in HACKING.md (and later in doc/*, or the TODO/DONE tasks).
 
 - For comments, tasks, open points, remarks and margin notes; the TODO/FIXME/XXX/BUG/NOTE/... tag can be used inline (code comments, strings, or in plain text) to mark things per their category;
 
