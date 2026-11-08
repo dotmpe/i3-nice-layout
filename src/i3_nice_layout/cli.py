@@ -58,9 +58,17 @@ def _print_pool(reply: dict, as_json: bool = True) -> None:
         )
 
 
+def _handle_response(reply, quiet=False, indent=None):
+    if not quiet:
+        print(json.dumps(reply, indent=indent))
+    if not reply.get("ok"):
+        sys.exit(1)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="i3-nice-layout")
     parser.add_argument('-V', '--version', action='version', version='%(prog)s '+__version__)
+    parser.add_argument('-q', '--quiet', action='store_true')
     sub = parser.add_subparsers(dest="command", required=True)
 
     # daemon
@@ -96,7 +104,7 @@ def main(argv: list[str] | None = None) -> None:
     p_get = pool_sub.add_parser("get")
     p_get.add_argument("--id", type=int,
                        help="window to get (default: focused)")
-    p_get.set_defaults(func=lambda a: print(json.dumps(_send("pool.get", id=a.id), indent=2)))
+    p_get.set_defaults(func=lambda a: _handle_response(_send("pool.get", id=a.id), indent=2))
 
     # tag / group
     # User tag live in the tracked window pool of the i3-nice-layout daemon.
@@ -105,7 +113,7 @@ def main(argv: list[str] | None = None) -> None:
                        help="window to tag (default: focused)")
     p_tag.add_argument("-R", "--remove", action="store_true")
     p_tag.add_argument("tag")
-    p_tag.set_defaults(func=lambda a: print(json.dumps(_send("tag.add", id=a.id, tag=a.tag))))
+    p_tag.set_defaults(func=lambda a: _handle_response(_send("tag.add", id=a.id, tag=a.tag), a.quiet))
 
     # Groups are used to apply behavior to windows.
     p_group = sub.add_parser("group", help="add or remove window from group")
@@ -114,8 +122,9 @@ def main(argv: list[str] | None = None) -> None:
     p_group.add_argument("-R", "--remove", action="store_true")
     p_group.add_argument("group")
     p_group.set_defaults(
-            func=lambda a: print(json.dumps(_send(
-                "group.add" if not a.remove else "group.remove", id=a.id, group=a.group)))
+            func=lambda a: _handle_response(_send(
+                "group.add" if not a.remove else "group.remove", id=a.id,
+                group=a.group), a.quiet)
     )
 
     # Shift every other window in a group by the delta of one window.
@@ -195,7 +204,7 @@ def _rollup_payload(a) -> dict:
 
 
 def _cmd_rollup(a) -> None:
-    print(json.dumps(_send("rollup.toggle", **_rollup_payload(a)), indent=2))
+    _handle_response(_send("rollup.toggle", **_rollup_payload(a)), a.quiet, indent=2)
 
 
 def _cmd_follow(a) -> None:
